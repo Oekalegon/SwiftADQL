@@ -21,7 +21,11 @@ final class ADQLTests: XCTestCase {
         // Print the query for debugging
         print("Loaded ADQL query: \(adqlQuery)")
 
+        // Create a parser instance
         let parser = ADQLParser()
+
+        // Call the parse method (this doesn't do anything yet, but demonstrates usage)
+        parser.parse(query: adqlQuery)
 
         // Now you can use the query string for your test
         XCTAssertFalse(adqlQuery.isEmpty)
