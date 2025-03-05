@@ -4,7 +4,7 @@ import Foundation
 public enum Identifier {
     case table(String)
     case column(String)
-    case allWildCard
+    case asterisk
 }
 
 /// A quantifier used in e.g. a SELECT statement.
@@ -40,7 +40,34 @@ public struct Select: CustomStringConvertible {
     /// The limit to use
     public var limit: SetLimit
 
+    public var tableExpression: TableExpression
+
     public var description: String {
-        "SELECT \(quantifier) \(limit) \(columnIdentifiers)"
+        """
+        SELECT \(quantifier) \(limit) \(columnIdentifiers)
+            \(tableExpression)
+        """
+    }
+}
+
+/// A FROM clause in an ADQL query.
+public struct FromClause: CustomStringConvertible {
+    /// The tables to select from
+    public var tables: [Identifier]
+
+    /// The description of the FROM clause
+    public var description: String {
+        "FROM \(tables)"
+    }
+}
+
+/// A table expression in an ADQL query.
+public struct TableExpression: CustomStringConvertible {
+    /// The FROM clause
+    public var fromClause: FromClause
+
+    /// The description of the table expression
+    public var description: String {
+        "TABLE EXPRESSION: \(fromClause)"
     }
 }

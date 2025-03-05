@@ -18,20 +18,46 @@ public actor ADQLParser {
         identifier
     }.map { Identifier.column($0) }
 
-    /// The allWildCard identifier is a single asterisk
-    private static let allWildCard = Parse { "*" }.map { [Identifier.allWildCard] }
+    /// The asterisk identifier is a single asterisk
+    private static let asterisk = Parse { "*" }.map { [Identifier.asterisk] }
 
     /// The table identifier
     private static let tableIdentifier = Parse {
         identifier
-    }.map { [Identifier.table($0)] }
+    }.map { Identifier.table($0) }
 
     /// A list of column identifiers (or a `*` wildcard)
     ///
     /// It returns an array of identifiers
+    ///
+    /// BNF:
+    /// ```
+    /// <select_list> ::=
+    ///     <asterisk>
+    ///   | <select_sublist> [ { <comma> <select_sublist> }... ]
+    /// ```
     private static let columnList = Parse {
         Many {
             columnIdentifier
+            Optionally {
+                ","
+                Whitespace()
+            }
+        }
+    }.map { $0.map(\.0) }
+
+    /// A list of table identifiers
+    ///
+    /// It returns an array of identifiers
+    ///
+    /// BNF:
+    /// ```
+    /// <table_list> ::=
+    ///     <table_identifier> [ { <comma> <table_identifier> }... ]
+    /// ```
+    private static let tableList = Parse {
+        Many {
+            tableIdentifier
             Optionally {
                 ","
                 Whitespace()
@@ -100,19 +126,53 @@ public actor ADQLParser {
         setLimit
         OneOf {
             // Either a `*` wildcard
-            allWildCard
+            asterisk
             // Or a list of column identifiers
             columnList
         }
         Whitespace()
+        tableExpression
     }
-    .map { (quantifier: SetQuantifier, limit: SetLimit, columns: [Identifier]) in
+    .map { (quantifier: SetQuantifier, limit: SetLimit, columns: [Identifier], tableExpression: TableExpression) in
         Select(
             columnIdentifiers: columns,
             quantifier: quantifier,
-            limit: limit
+            limit: limit,
+            tableExpression: tableExpression
         )
     }
+
+    /// A FROM clause
+    ///
+    /// BNF:
+    /// ```
+    /// <from_clause> ::=
+    ///     FROM <table_reference>
+    ///     [ { <comma> <table_reference> }... ]
+    /// ```
+    private static let fromClause = Parse {
+        "FROM"
+        Whitespace()
+        tableList
+    }.map { (tables: [Identifier]) in
+        FromClause(tables: tables)
+    }
+
+    /// A table expression
+    ///
+    /// BNF:
+    /// ```
+    /// <table_expression> ::=
+    ///     <from_clause>
+    ///     [ <where_clause> ]
+    ///     [ <group_by_clause> ]
+    ///     [ <having_clause> ]
+    ///     [ <order_by_clause> ]
+    ///     [ <offset_clause> ]
+    /// ```
+    private static let tableExpression = Parse {
+        fromClause
+    }.map { TableExpression(fromClause: $0) }
 
     /// The default initializer for the ADQL parser
     public init() {}
