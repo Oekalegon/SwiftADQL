@@ -1,0 +1,4 @@
+SELECT *
+FROM gaiadr3.gaia_source
+WHERE CONTAINS(POINT('icrs', gaiadr3.gaia_source.ra, gaiadr3.gaia_source.dec), BOX('ICRS', 266.41681624999995, -29.00782472222222, 0.10000000000002274, 0.10000000000000142)) = 1
+ORDER BY phot_g_mean_mag ASC

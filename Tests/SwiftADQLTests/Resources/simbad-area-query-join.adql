@@ -1,0 +1,6 @@
+SELECT *
+FROM basic
+INNER JOIN allfluxes
+	ON basic.oid = allfluxes.oidref
+WHERE CONTAINS(POINT('icrs', basic.ra, basic.dec), BOX('ICRS', 292.68031499999995, 27.95967361111111, 7.0, 4.0)) = 1 AND basic.otype = 'Star..' AND allfluxes.V < 16.0
+ORDER BY V ASC
