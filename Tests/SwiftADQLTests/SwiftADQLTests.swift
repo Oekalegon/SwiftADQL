@@ -1,4 +1,5 @@
 import Foundation
+import Parsing
 import XCTest
 
 @testable import SwiftADQL
@@ -25,7 +26,8 @@ final class ADQLTests: XCTestCase {
         let parser = ADQLParser()
 
         // Call the parse method (this doesn't do anything yet, but demonstrates usage)
-        parser.parse(query: adqlQuery)
+        let result = await parser.parse(adqlQuery)
+        print(result)
 
         // Now you can use the query string for your test
         XCTAssertFalse(adqlQuery.isEmpty)
