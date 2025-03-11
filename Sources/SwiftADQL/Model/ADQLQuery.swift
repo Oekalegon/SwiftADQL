@@ -1,73 +1,110 @@
 import Foundation
+import Parsing
 
-/// An identifier
-public enum Identifier {
-    case table(String)
-    case column(String)
-    case asterisk
+public enum UnsignedLiteral: Equatable {
+    case int(Int)
+    case double(Double)
+    case hexadecimal(UInt64)
+    case string(String)
+    case error
 }
 
-/// A quantifier used in e.g. a SELECT statement.
-///
-/// Either ``DISTINCT`` or ``ALL``.
-public enum SetQuantifier {
-    /// DISTINCT
-    case distinct
-    /// ALL
-    case all
-    /// No quantifier
-    case none
-}
-
-/// A limit used in e.g. a SELECT statement.
-///
-/// Either a limit value or no limit.
-public enum SetLimit {
-    /// A limit value
-    case limit(Int)
-    /// No limit
-    case none
-}
-
-/// The ADQL SELECT statement in a query.
-public struct Select: CustomStringConvertible {
-    /// The identifiers to select
-    public var columnIdentifiers: [Identifier]
-
-    /// The quantifier to use
-    public var quantifier: SetQuantifier
-
-    /// The limit to use
-    public var limit: SetLimit
-
-    public var tableExpression: TableExpression
+public enum Identifier: Equatable, CustomStringConvertible {
+    case regular(String)
+    case delimited(String)
 
     public var description: String {
-        """
-        SELECT \(quantifier) \(limit) \(columnIdentifiers)
-            \(tableExpression)
-        """
+        switch self {
+        case let .regular(string):
+            string
+        case let .delimited(string):
+            "\"\(string)\""
+        }
     }
 }
 
-/// A FROM clause in an ADQL query.
-public struct FromClause: CustomStringConvertible {
-    /// The tables to select from
-    public var tables: [Identifier]
+public struct Schema: Equatable, CustomStringConvertible {
+    let catalog: Identifier?
+    let unqualifiedSchema: Identifier
 
-    /// The description of the FROM clause
     public var description: String {
-        "FROM \(tables)"
+        if let catalog {
+            "\(catalog).\(unqualifiedSchema)"
+        } else {
+            unqualifiedSchema.description
+        }
     }
 }
 
-/// A table expression in an ADQL query.
-public struct TableExpression: CustomStringConvertible {
-    /// The FROM clause
-    public var fromClause: FromClause
+public enum Name: Equatable, CustomStringConvertible {
+    case table(schema: Schema?, identifier: Identifier)
+    case column(Identifier)
+    case correlation(Identifier)
 
-    /// The description of the table expression
     public var description: String {
-        "TABLE EXPRESSION: \(fromClause)"
+        switch self {
+        case let .table(schema, identifier):
+            if let schema {
+                "\(schema).\(identifier)"
+            } else {
+                identifier.description
+            }
+        case let .column(identifier):
+            identifier.description
+        case let .correlation(identifier):
+            identifier.description
+        }
+    }
+}
+
+public enum Qualifier: Equatable {
+    case table(Name)
+    case correlation(Name)
+}
+
+public struct ColumnReference: Equatable {
+    let qualifier: Qualifier?
+    let columnName: Name
+}
+
+public enum ValueExpressionPrimary: Equatable {
+    case unsignedLiteral(UnsignedLiteral)
+    case columnReference(ColumnReference)
+    // TODO: Set Function Specification
+    // TODO: Value Expression
+}
+
+public struct TokenLocation: CustomStringConvertible {
+    public let line: Int
+    public let column: Int
+
+    public var description: String {
+        "\(line):\(column)"
+    }
+}
+
+// To get Position information from the parser, we need to define a custom parser.
+public struct Position: Parser {
+    public init() {}
+
+    public func parse(_ input: inout Substring) throws -> TokenLocation {
+        // Get the current position by looking at input's startIndex
+        let text = input.base // Get the original string
+        let currentIndex = input.startIndex
+
+        // Count lines and columns up to current position
+        var line = 1
+        var column = 1
+
+        for idx in text[..<currentIndex].indices {
+            if text[idx] == "\n" {
+                line += 1
+                column = 1
+            } else {
+                column += 1
+            }
+        }
+
+        return TokenLocation(line: line, column: column)
     }
 }

@@ -1,3 +1,5 @@
-SELECT id2.id FROM ident AS id1 
+SELECT id2.id 
+FROM ident AS id1 
 JOIN ident AS id2 USING(oidref) 
-WHERE id1.id = 'M13';
+WHERE 
+    id1.id = 'M13';
