@@ -23,48 +23,36 @@ public enum Identifier: Equatable, CustomStringConvertible {
     }
 }
 
-public struct Schema: Equatable, CustomStringConvertible {
-    let catalog: Identifier?
-    let unqualifiedSchema: Identifier
+public struct TableName: Equatable, CustomStringConvertible {
+    public let catalog: Identifier?
+    public let schema: Identifier?
+    public let table: Identifier
 
     public var description: String {
+        var components: [String] = []
         if let catalog {
-            "\(catalog).\(unqualifiedSchema)"
-        } else {
-            unqualifiedSchema.description
+            components.append(catalog.description)
         }
-    }
-}
-
-public enum Name: Equatable, CustomStringConvertible {
-    case table(schema: Schema?, identifier: Identifier)
-    case column(Identifier)
-    case correlation(Identifier)
-
-    public var description: String {
-        switch self {
-        case let .table(schema, identifier):
-            if let schema {
-                "\(schema).\(identifier)"
-            } else {
-                identifier.description
-            }
-        case let .column(identifier):
-            identifier.description
-        case let .correlation(identifier):
-            identifier.description
+        if let schema {
+            components.append(schema.description)
         }
+        components.append(table.description)
+        return components.joined(separator: ".")
     }
-}
-
-public enum Qualifier: Equatable {
-    case table(Name)
-    case correlation(Name)
 }
 
 public struct ColumnReference: Equatable {
-    let qualifier: Qualifier?
-    let columnName: Name
+    let tableName: TableName?
+    let columnName: Identifier
+
+    public var description: String {
+        var components: [String] = []
+        if let tableName {
+            components.append(tableName.description)
+        }
+        components.append(columnName.description)
+        return components.joined(separator: ".")
+    }
 }
 
 public enum ValueExpressionPrimary: Equatable {

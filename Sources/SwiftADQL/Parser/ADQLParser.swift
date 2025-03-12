@@ -67,23 +67,6 @@ public actor ADQLParser {
         delimitedIdentifier
     }.eraseToAnyParser()
 
-    /// A parser that parses a schema.
-    ///
-    /// A schema is an identifier optionally preceded by a catalog name.
-    /// BNF:
-    /// ```
-    /// schema ::= [<catalog> "."] <identifier>
-    /// ```
-    public static let schema: AnyParser<Substring, Schema> = Parse {
-        Optionally {
-            identifier
-            "."
-        }
-        identifier
-    }.map { catalog, unqualifiedSchema in
-        Schema(catalog: catalog, unqualifiedSchema: unqualifiedSchema)
-    }.eraseToAnyParser()
-
     /// A parser that parses a table name.
     ///
     /// A table can be composed of one to three identifiers:
@@ -109,14 +92,17 @@ public actor ADQLParser {
     /// ```
     /// tableName ::= [<catalog> "."] [<schema> "."] <identifier>
     /// ```
-    public static let tableName: AnyParser<Substring, Name> = Parse {
-        Optionally {
-            schema
+    public static let tableName: AnyParser<Substring, TableName> = Parse {
+        Many(1...) {
+            identifier
+        } separator: {
             "."
         }
-        identifier
-    }.map { schema, identifier in
-        Name.table(schema: schema, identifier: identifier)
+    }.map { identifiers in
+        let tableName = identifiers.last!
+        let catalog = identifiers.count > 2 ? identifiers[identifiers.count - 3] : nil
+        let schema = identifiers.count > 1 ? identifiers[identifiers.count - 2] : nil
+        return TableName(catalog: catalog, schema: schema, table: tableName)
     }.eraseToAnyParser()
 
     /// A parser that parses a column name.
@@ -127,11 +113,9 @@ public actor ADQLParser {
     /// ```
     /// columnName ::= <identifier>
     /// ```
-    public static let columnName: AnyParser<Substring, Name> = Parse {
+    public static let columnName = Parse {
         identifier
-    }.map { identifier in
-        Name.column(identifier)
-    }.eraseToAnyParser()
+    }
 
     /// A parser that parses a correlation name.
     ///
@@ -141,24 +125,9 @@ public actor ADQLParser {
     /// ```
     /// correlationName ::= <identifier>
     /// ```
-    public static let correlationName: AnyParser<Substring, Name> = Parse {
+    public static let correlationName = Parse {
         identifier
-    }.map { identifier in
-        Name.correlation(identifier)
-    }.eraseToAnyParser()
-
-    /// A parser that parses a qualifier.
-    ///
-    /// A qualifier can be a table name or a correlation name.
-    ///
-    /// BNF:
-    /// ```
-    /// qualifier ::= <tableName> | <correlationName>
-    /// ```
-    public static let qualifier: AnyParser<Substring, Qualifier> = OneOf {
-        tableName.map { Qualifier.table($0) }
-        correlationName.map { Qualifier.correlation($0) }
-    }.eraseToAnyParser()
+    }
 
     /// A parser that parses a column reference.
     ///
@@ -170,13 +139,18 @@ public actor ADQLParser {
     /// columnReference ::= [<qualifier> "."] <columnName>
     /// ```
     public static let columnReference: AnyParser<Substring, ColumnReference> = Parse {
-        Optionally {
-            qualifier
+        Many(1...) {
+            identifier
+        } separator: {
             "."
         }
-        columnName
-    }.map { qualifier, columnName in
-        ColumnReference(qualifier: qualifier, columnName: columnName)
+    }.map { identifiers in
+        let columnName = identifiers.last!
+        let catalog = identifiers.count > 3 ? identifiers[identifiers.count - 4] : nil
+        let schema = identifiers.count > 2 ? identifiers[identifiers.count - 3] : nil
+        let tableName = identifiers.count > 1 ? identifiers[identifiers.count - 2] : nil
+        let table = tableName != nil ? TableName(catalog: catalog, schema: schema, table: tableName!) : nil
+        return ColumnReference(tableName: table, columnName: columnName)
     }.eraseToAnyParser()
 
     // MARK: - Literals
