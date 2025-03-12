@@ -62,6 +62,49 @@ public enum ValueExpressionPrimary: Equatable {
     // TODO: Value Expression
 }
 
+// MARK: - Set Functions
+
+public enum SetFunctionSpecification: Equatable {
+    case countAll
+    case general(SetFunction, SetQuantifier?) // TODO: Add Value Expression
+}
+
+/// A type that represents a set function.
+public enum SetFunction: Equatable {
+    case count
+    case average
+    case maximum
+    case minimum
+    case sum
+}
+
+/// A type that represents a set quantifier.
+public enum SetQuantifier: Equatable {
+    case distinct
+    case all
+}
+
+// MARK: - Numeric Expressions
+
+public enum NumericPrimary: Equatable {
+    case expression(ValueExpressionPrimary)
+    case function // TODO: Add numeric value function
+}
+
+public enum Factor: Equatable {
+    case expression(sign: Double, value: ValueExpressionPrimary)
+    case function(sign: Double) // TODO: Add numeric value function
+    // TODO: Set Function Specification
+}
+
+public indirect enum Term: Equatable {
+    case factor(Factor)
+    case multiplication(Term, Factor)
+    case division(Term, Factor)
+}
+
+// MARK: - Cursor position
+
 public struct TokenLocation: CustomStringConvertible {
     public let line: Int
     public let column: Int
