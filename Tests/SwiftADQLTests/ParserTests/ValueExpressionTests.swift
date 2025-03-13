@@ -211,5 +211,34 @@ final class ValueExpressionTests: XCTestCase {
             // Create the final AST for ~42 & 10 with correct precedence: (~42) & 10
             XCTAssertEqual(result, NumericValueExpression.bitwiseAnd(not42, expr10))
         }
+        do {
+            let input = "(5 + 3) * 2"
+            let result = try ADQLParser.numericValueExpression.parse(input)
+            print("Complex expression: \(result)")
+
+            let factor5 = Factor.expression(sign: 1.0, value: .unsignedLiteral(.int(5)))
+            let term5 = Term.factor(factor5)
+            let expr5 = NumericValueExpression.term(term5)
+
+            let factor3 = Factor.expression(sign: 1.0, value: .unsignedLiteral(.int(3)))
+            let term3 = Term.factor(factor3)
+            let expr3 = NumericValueExpression.term(term3)
+
+            let factor2 = Factor.expression(sign: 1.0, value: .unsignedLiteral(.int(2)))
+            let term2 = Term.factor(factor2)
+
+            // In ValueExpressionPrimary the parenthesized expr becomes a primary
+            let addExpr = NumericValueExpression.addition(expr5, expr3)
+            let addPrimary = ValueExpressionPrimary.expression(.numericValueExpression(addExpr))
+
+            // Then this becomes a factor with sign 1.0
+            let addFactor = Factor.expression(sign: 1.0, value: addPrimary)
+
+            // Then this gets multiplied by 2
+            let mult = Term.multiplication(Term.factor(addFactor), factor2)
+            let exprMult = NumericValueExpression.term(mult)
+
+            XCTAssertEqual(result, exprMult)
+        }
     }
 }

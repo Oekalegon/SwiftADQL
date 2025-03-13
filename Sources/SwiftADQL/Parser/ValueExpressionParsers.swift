@@ -16,10 +16,11 @@ public extension ADQLParser {
         unsignedLiteral.map { ValueExpressionPrimary.unsignedLiteral($0) }
         columnReference.map { ValueExpressionPrimary.columnReference($0) }
         // TODO: Set Function Specification
-        // TODO: Value Expression
         Parse {
             "("
-            valueExpression.map { ValueExpressionPrimary.expression($0) }
+            Lazy {
+                valueExpression.map { ValueExpressionPrimary.expression($0) }
+            }
             ")"
         }
     }.eraseToAnyParser()
@@ -73,84 +74,106 @@ public extension ADQLParser {
     }
 
     static let numericValueExpression: AnyParser<Substring, NumericValueExpression> = {
-        // Create a reference we can update later
-        var exprRef: AnyParser<Substring, NumericValueExpression>!
-
-        // Term parser (lowest level)
+        // Term is our base building block
         let termExpr = term.map { NumericValueExpression.term($0) }
 
-        // Apply unary NOT to basic expressions - this gives NOT higher precedence
-        let unaryExpr = OneOf {
-            Parse {
-                "~"
-                Whitespace()
-                termExpr
-            }.map { NumericValueExpression.bitwiseNot($0) }
+        // Define our precedence levels
+
+        // Level 0: Basic term or NOT expression
+        let notExpr = Parse {
+            "~"
+            Whitespace()
             termExpr
-        }
+        }.map { NumericValueExpression.bitwiseNot($0) }
 
-        // Helper function to create binary operation parsers with the specified operators
-        func makeBinaryOpParser(
-            leftParser: AnyParser<Substring, NumericValueExpression>,
-            operators: [(String, (NumericValueExpression, NumericValueExpression) -> NumericValueExpression)]
-        ) -> AnyParser<Substring, NumericValueExpression> {
-            Parse {
-                leftParser
-                Many {
-                    Parse {
-                        Whitespace()
-                        OneOf {
-                            // Create a parser for each operator string
-                            for (ops, _) in operators {
-                                Parse { ops }.map { ops }
-                            }
-                        }
-                        Whitespace()
-                        leftParser
-                    }.map { ops, right in
-                        (op: ops, right: right)
-                    }
-                }
-            }.map { left, operations -> NumericValueExpression in
-                operations.reduce(left) { result, operation in
-                    let foundOp = operators.first { $0.0 == operation.op }!
-                    return foundOp.1(result, operation.right)
-                }
-            }.eraseToAnyParser()
-        }
+        let baseExpr = OneOf {
+            notExpr
+            termExpr
+        }.eraseToAnyParser()
 
-        // Build precedence levels, starting with unary expression as the base
         // Level 1: Bitwise AND
-        let bitwiseAndExpr = makeBinaryOpParser(
-            leftParser: unaryExpr.eraseToAnyParser(),
-            operators: [("&", { NumericValueExpression.bitwiseAnd($0, $1) })]
-        )
+        let andExpr = Parse {
+            baseExpr
+            Many {
+                Parse {
+                    Whitespace()
+                    "&"
+                    Whitespace()
+                    baseExpr
+                }
+            }
+        }.map { left, rights in
+            rights.reduce(left) { result, right in
+                NumericValueExpression.bitwiseAnd(result, right)
+            }
+        }.eraseToAnyParser()
 
         // Level 2: Bitwise XOR
-        let bitwiseXorExpr = makeBinaryOpParser(
-            leftParser: bitwiseAndExpr,
-            operators: [("^", { NumericValueExpression.bitwiseXor($0, $1) })]
-        )
+        let xorExpr = Parse {
+            andExpr
+            Many {
+                Parse {
+                    Whitespace()
+                    "^"
+                    Whitespace()
+                    andExpr
+                }
+            }
+        }.map { left, rights in
+            rights.reduce(left) { result, right in
+                NumericValueExpression.bitwiseXor(result, right)
+            }
+        }.eraseToAnyParser()
 
         // Level 3: Bitwise OR
-        let bitwiseOrExpr = makeBinaryOpParser(
-            leftParser: bitwiseXorExpr,
-            operators: [("|", { NumericValueExpression.bitwiseOr($0, $1) })]
-        )
+        let orExpr = Parse {
+            xorExpr
+            Many {
+                Parse {
+                    Whitespace()
+                    "|"
+                    Whitespace()
+                    xorExpr
+                }
+            }
+        }.map { left, rights in
+            rights.reduce(left) { result, right in
+                NumericValueExpression.bitwiseOr(result, right)
+            }
+        }.eraseToAnyParser()
 
-        // Level 4: Addition and Subtraction
-        let additiveExpr = makeBinaryOpParser(
-            leftParser: bitwiseOrExpr,
-            operators: [
-                ("+", { NumericValueExpression.addition($0, $1) }),
-                ("-", { NumericValueExpression.subtraction($0, $1) }),
-            ]
-        )
+        // Level 4: Addition/Subtraction
+        let addSubExpr = Parse {
+            orExpr
+            Many {
+                OneOf {
+                    Parse {
+                        Whitespace()
+                        "+"
+                        Whitespace()
+                        orExpr
+                    }.map { ("+", $0) }
 
-        // Complete the cycle - the final expression parser is the additive expression
-        exprRef = additiveExpr
+                    Parse {
+                        Whitespace()
+                        "-"
+                        Whitespace()
+                        orExpr
+                    }.map { ("-", $0) }
+                }
+            }
+        }.map { left, operations in
+            operations.reduce(left) { result, operation in
+                let (ops, right) = operation
+                switch ops {
+                case "+": return NumericValueExpression.addition(result, right)
+                case "-": return NumericValueExpression.subtraction(result, right)
+                default: fatalError("Unexpected operator: \(ops)")
+                }
+            }
+        }
 
-        return additiveExpr
+        return addSubExpr.eraseToAnyParser()
     }()
 
     // MARK: - Bitwise Expressions
