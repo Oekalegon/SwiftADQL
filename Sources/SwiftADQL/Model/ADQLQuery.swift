@@ -103,6 +103,16 @@ public indirect enum Term: Equatable {
     case division(Term, Factor)
 }
 
+public indirect enum NumericValueExpression: Equatable {
+    case term(Term)
+    case bitwiseNot(NumericValueExpression)
+    case bitwiseAnd(NumericValueExpression, NumericValueExpression)
+    case bitwiseOr(NumericValueExpression, NumericValueExpression)
+    case bitwiseXor(NumericValueExpression, NumericValueExpression)
+    case addition(NumericValueExpression, NumericValueExpression)
+    case subtraction(NumericValueExpression, NumericValueExpression)
+}
+
 // MARK: - Cursor position
 
 public struct TokenLocation: CustomStringConvertible {
