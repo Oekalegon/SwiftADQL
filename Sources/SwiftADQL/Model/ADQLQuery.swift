@@ -55,11 +55,18 @@ public struct ColumnReference: Equatable {
     }
 }
 
+public indirect enum ValueExpression: Equatable {
+    case numericValueExpression(NumericValueExpression)
+    case stringValueExpression  // TODO: Add String Value Expression
+    case booleanValueExpression // TODO: Add Boolean Value Expression
+    case geometryValueExpression // TODO: Add Geometry Value Expression
+}
+
 public enum ValueExpressionPrimary: Equatable {
     case unsignedLiteral(UnsignedLiteral)
     case columnReference(ColumnReference)
     // TODO: Set Function Specification
-    // TODO: Value Expression
+    case expression(ValueExpression)
 }
 
 // MARK: - Set Functions

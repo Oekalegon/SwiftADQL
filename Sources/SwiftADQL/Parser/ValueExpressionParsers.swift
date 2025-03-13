@@ -5,18 +5,23 @@ import Parsing
 public extension ADQLParser {
     // MARK: - Value Expression
 
+    static let valueExpression = OneOf {
+        numericValueExpression.map { ValueExpression.numericValueExpression($0) }
+        // TODO: String Value Expression
+        // TODO: Boolean Value Expression
+        // TODO: Geometry Value Expression
+    }
+
     static let valueExpressionPrimary = OneOf {
         unsignedLiteral.map { ValueExpressionPrimary.unsignedLiteral($0) }
         columnReference.map { ValueExpressionPrimary.columnReference($0) }
         // TODO: Set Function Specification
         // TODO: Value Expression
-        /*
-         Parse {
-             "("
-             valueExpression
-             ")"
-         }
-         */
+        Parse {
+            "("
+            valueExpression.map { ValueExpressionPrimary.expression($0) }
+            ")"
+        }
     }.eraseToAnyParser()
 
     // MARK: - Numeric Expressions
@@ -74,27 +79,14 @@ public extension ADQLParser {
         // Term parser (lowest level)
         let termExpr = term.map { NumericValueExpression.term($0) }
 
-        // Basic expression - either a term or a parenthesized expression (no NOT yet)
-        let basicExpr = OneOf {
-            // Handle parenthesized expressions
-            Parse {
-                "("
-                Whitespace()
-                Lazy { exprRef }
-                Whitespace()
-                ")"
-            }.map { $0! }
-            termExpr
-        }
-
         // Apply unary NOT to basic expressions - this gives NOT higher precedence
         let unaryExpr = OneOf {
             Parse {
                 "~"
                 Whitespace()
-                basicExpr
+                termExpr
             }.map { NumericValueExpression.bitwiseNot($0) }
-            basicExpr
+            termExpr
         }
 
         // Helper function to create binary operation parsers with the specified operators
